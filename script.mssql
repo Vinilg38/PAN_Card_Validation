@@ -1,0 +1,79 @@
+--Identify missing data
+select * from public."PAN" where pan_no is NULL;
+
+--Check for duplicates
+select pan_no,count(1) from public."PAN"
+GROUP BY pan_no
+HAVING count(1)>1;
+
+-- Data Cleaning
+create or replace view clean_pan as 
+SELECT distinct (trim(upper(pan_no))) as pan_no
+from public."PAN"
+WHERE pan_no IS NOT NULL 
+AND TRIM(pan_no) <> '';
+
+-- Function to check adjacent characters are same or not (eg: AABC)
+CREATE OR REPLACE FUNCTION check_adj(p_str text)
+returns boolean
+language plpgsql
+as $$
+begin
+	for i in 1..length(p_str)-1
+	loop
+		if substring(p_str, i, 1) = substring(p_str, i + 1, 1)
+		then
+			return true;
+		end if;
+	end loop;
+	return false;
+end;
+$$;
+
+-- Function to check whether a sequence is being formed ( eg: ABCD)
+
+CREATE OR REPLACE FUNCTION check_seq(p_str text)
+returns boolean
+language plpgsql
+as $$
+begin
+	for i in 1..length(p_str)-1
+	loop
+		if ascii(substring(p_str, i+1, 1)) - ascii(substring(p_str, i, 1))<>1
+		then
+			return false;
+		end if;
+	end loop;
+	return true;
+end;
+$$;
+
+--Regex + Using Previous Functions To Check valid PAN
+create or replace view valid_cte as
+select pan_no from clean_pan
+where pan_no ~ '^[A-Z]{5}[0-9]{4}[A-Z]$' 
+and check_adj(pan_no)= false
+and check_seq(substring(pan_no,1,5))= false
+and check_seq(substring(pan_no,6,4))= false;
+
+-- Final Report 
+create or replace view final_pan as
+select cln.pan_no, case when v.pan_no IS NOT NULL then 'Valid'
+ELSE 'Invalid' end as status
+FROM clean_pan cln 
+LEFT JOIN valid_cte v
+ON cln.pan_no=v.pan_no;
+--Use "SELECT * FROM final_pan" to view report 
+-- Summary Report
+SELECT (SELECT COUNT(*) FROM public."PAN" ) AS total_processed_records, COUNT(*) FILTER ( WHERE status='Valid') as total_valid_pans,
+COUNT(*) FILTER ( WHERE status='Invalid') as total_invalid_pans, ((SELECT COUNT(*) FROM public."PAN") - (SELECT COUNT(*) FROM clean_pan )) AS total_unprocessed_record
+FROM final_pan;
+
+
+	
+
+
+
+
+
+
