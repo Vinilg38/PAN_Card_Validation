@@ -35,7 +35,7 @@ To use this project, you will need a SQL database (the provided script is for **
 
 ## 🗄 SQL CREATE TABLE Script
 
-The following script will create a table named `PAN_CARD_DATA` with columns to store the PAN number, the holder's name, and the validation status.
+The following script will create a table named `PAN` to store the PAN numbers.
 
 ```sql
 CREATE TABLE PAN (
